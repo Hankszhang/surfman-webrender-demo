@@ -4,7 +4,8 @@ use webrender::{Renderer, RendererOptions, ShaderPrecacheFlags};
 use webrender::api::{
     RenderApi, DisplayListBuilder, FontInstanceKey,
     RenderNotifier, DocumentId, PipelineId, DebugCommand, DebugFlags,
-    ExternalImageHandler, OutputImageHandler, ColorF, Epoch
+    ExternalImageHandler, OutputImageHandler, ColorF, Epoch,
+    units::{LayoutRect, LayoutPoint, LayoutSize}
 };
 use winit::{
     EventsLoop, EventsLoopProxy,
@@ -47,6 +48,28 @@ impl RenderNotifier for Notifier {
     }
 }
 
+pub trait HandyDandyRectBuilder {
+    fn to(&self, x2: i32, y2: i32) -> LayoutRect;
+    fn by(&self, w: i32, h: i32) -> LayoutRect;
+}
+// Allows doing `(x, y).to(x2, y2)` or `(x, y).by(width, height)` with i32
+// values to build a f32 LayoutRect
+impl HandyDandyRectBuilder for (i32, i32) {
+    fn to(&self, x2: i32, y2: i32) -> LayoutRect {
+        LayoutRect::new(
+            LayoutPoint::new(self.0 as f32, self.1 as f32),
+            LayoutSize::new((x2 - self.0) as f32, (y2 - self.1) as f32),
+        )
+    }
+
+    fn by(&self, w: i32, h: i32) -> LayoutRect {
+        LayoutRect::new(
+            LayoutPoint::new(self.0 as f32, self.1 as f32),
+            LayoutSize::new(w as f32, h as f32),
+        )
+    }
+}
+
 pub trait App {
 	const PRECACHE_SHADER_FLAGS: ShaderPrecacheFlags = ShaderPrecacheFlags::EMPTY;
 	const WIDTH: u32 = 1344;
@@ -58,7 +81,7 @@ pub trait App {
     fn add_font(&self) -> Option<(PathBuf, f32)> {
         None
     }
-    
+
     fn build_display_list(
         &mut self,
         compositor: &mut Compositor,
@@ -132,7 +155,7 @@ pub fn run<E: App>(
 
     let (mut webrender, sender) = Renderer::new(
         webrender_gl.clone(),
-        notifier, 
+        notifier,
         RendererOptions {
             device_pixel_ratio,
             clear_color: app.clear_color(),
@@ -179,6 +202,7 @@ pub fn run<E: App>(
 
     // run event_loop
     events_loop.borrow_mut().run_forever(|global_event| {
+        let mut custom_event = true;
         let win_event = match global_event {
             Event::WindowEvent { event, .. } => event,
             _ => return ControlFlow::Continue,
@@ -186,6 +210,18 @@ pub fn run<E: App>(
 
         match win_event {
             WindowEvent::CloseRequested => return ControlFlow::Break,
+            winit::WindowEvent::AxisMotion { .. } |
+            winit::WindowEvent::CursorMoved { .. } => {
+                custom_event = app.on_event(
+                        win_event,
+                        compositor.get_webrender_api(),
+                        document_id,
+                    );
+                // skip high-frequency events from triggering a frame draw.
+                if !custom_event {
+                    return winit::ControlFlow::Continue;
+                }
+            },
             WindowEvent::KeyboardInput {
                 input: winit::KeyboardInput {
                     state: winit::ElementState::Pressed,
@@ -197,21 +233,28 @@ pub fn run<E: App>(
                 VirtualKeyCode::Escape => return ControlFlow::Break,
                 _ => {},
             },
-            _ => {}
+            other => custom_event = app.on_event(
+                other,
+                compositor.get_webrender_api(),
+                document_id
+            )
         }
 
-        let builder = app.build_display_list(
-            &mut compositor,
-            coordinates,
-            pipeline_id,
-            document_id,
-            font_instance_key
-        );
-        compositor.send_display_list(epoch, pipeline_id, builder);
+        if custom_event {
+            let builder = app.build_display_list(
+                &mut compositor,
+                coordinates,
+                pipeline_id,
+                document_id,
+                font_instance_key
+            );
+            compositor.send_display_list(epoch, pipeline_id, builder);
+        }
+
         compositor.composite();
         app.draw_custom(&*webrender_gl.clone());
         compositor.present();
-        
+
         ControlFlow::Continue
     });
 

@@ -3,16 +3,13 @@ use euclid::{Point2D, Scale, Size2D};
 use std::{cell::{Cell, RefCell}, rc::Rc};
 use surfman::{Connection, SurfaceType};
 use webrender::api::{
-    units::{DeviceIntPoint, DeviceIntRect, DeviceIntSize, DevicePixel},
+    units::{DeviceIntPoint, DeviceIntRect, DeviceIntSize, DevicePixel, LayoutSize},
     *,
 };
 use winit::{
     dpi::{LogicalPosition, LogicalSize, PhysicalSize},
     EventsLoop, WindowBuilder,
 };
-
-const WINDOW_WIDTH: i32 = 800;
-const WINDOW_HEIGHT: i32 = 600;
 
 #[derive(Clone, Copy, Debug)]
 pub enum DeviceIndependentPixel {}
@@ -29,6 +26,8 @@ pub struct EmbedderCoordinates {
     pub framebuffer: DeviceIntSize,
     /// Coordinates of the document within the framebuffer.
     pub viewport: DeviceIntRect,
+    /// Size of layout
+    pub layout: LayoutSize
 }
 
 impl EmbedderCoordinates {
@@ -48,13 +47,13 @@ pub struct Window {
 }
 
 impl Window {
-    pub fn new(name: &'static str, events_loop: Rc<RefCell<EventsLoop>>) -> Self {
+    pub fn new(name: &'static str, size: LogicalSize, events_loop: Rc<RefCell<EventsLoop>>) -> Self {
         let window_builder = WindowBuilder::new()
             .with_title(name)
             // .with_decorations(true)
             .with_resizable(false)
             .with_visibility(true)
-            .with_dimensions(LogicalSize::new(WINDOW_WIDTH as f64, WINDOW_HEIGHT as f64))
+            .with_dimensions(size)
             .with_multitouch();
 
         let winit_window = window_builder
@@ -129,12 +128,15 @@ impl Window {
         let inner_size = (Size2D::new(width as f32, height as f32) * dpr).to_i32();
         let viewport = DeviceIntRect::new(Point2D::zero(), inner_size);
         let framebuffer = DeviceIntSize::from_untyped(viewport.size.to_untyped());
+        let hidpi_factor = self.device_hidpi_factor();
+        let layout = framebuffer.to_f32() / Scale::new(hidpi_factor.get());
         EmbedderCoordinates {
             viewport,
             framebuffer,
             window: (win_size, win_origin),
             screen,
-            hidpi_factor: self.device_hidpi_factor(),
+            hidpi_factor,
+            layout
         }
     }
 }

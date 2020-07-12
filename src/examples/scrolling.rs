@@ -1,10 +1,9 @@
 use crate::{
     app::{App, HandyDandyRectBuilder},
-    window::EmbedderCoordinates,
     compositor::Compositor
 };
 
-use euclid::{Scale, SideOffsets2D};
+use euclid::SideOffsets2D;
 use webrender::api::*;
 use webrender::api::units::*;
 use winit::dpi::LogicalPosition;
@@ -15,27 +14,19 @@ struct ScrollPanel {
 }
 
 impl App for ScrollPanel {
-    fn title(&self) -> &'static str {
-        "Scrolling Example"
-    }
-
-    fn clear_color(&self) -> Option<ColorF> {
-        Some(ColorF::new(0.3, 0.0, 0.0, 1.0))
-    }
+    const TITLE: &'static str = "Scrolling Example";
 
     fn add_font(&self) -> Option<(PathBuf, f32)> {
         None
     }
 	fn build_display_list(
         &mut self,
-        _compositor: &mut Compositor,
-        embedder_coordinates: EmbedderCoordinates,
+        compositor: &mut Compositor,
         pipeline_id: PipelineId,
         _document_id: DocumentId,
         _font_instance_key: Option<FontInstanceKey>
 	) -> DisplayListBuilder {
-        let layout_size = embedder_coordinates.framebuffer.to_f32() / Scale::new(embedder_coordinates.hidpi_factor.get());
-        let mut builder = DisplayListBuilder::new(pipeline_id, layout_size);
+        let mut builder = DisplayListBuilder::new(pipeline_id, compositor.get_layout_size());
 
         let root_space_and_clip = SpaceAndClipInfo::root_scroll(pipeline_id);
 

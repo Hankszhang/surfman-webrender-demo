@@ -7,5 +7,6 @@ mod app;
 fn main() {
     // examples::basic::run();
     // examples::yuv::run();
-    examples::scrolling::run();
+    // examples::scrolling::run();
+    examples::animation::run();
 }

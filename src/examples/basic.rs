@@ -1,6 +1,5 @@
 use crate::{
     app::App,
-    window::EmbedderCoordinates,
     compositor::Compositor
 };
 use webrender::api::{
@@ -8,15 +7,12 @@ use webrender::api::{
     PipelineId, ColorF, GlyphInstance, FontInstanceKey, DocumentId,
 	units::{LayoutRect, LayoutPoint, LayoutSize}
 };
-use euclid::Scale;
 use std::{path::PathBuf, env::current_dir};
 
 struct Basic {}
 
 impl App for Basic {
-    fn title(&self) -> &'static str {
-        "Basic Example"
-    }
+    const TITLE: &'static str = "Basic Example";
 
     fn clear_color(&self) -> Option<ColorF> {
         Some(ColorF::new(0.3, 0.0, 0.0, 1.0))
@@ -28,14 +24,12 @@ impl App for Basic {
 
     fn build_display_list(
         &mut self,
-        _compositor: &mut Compositor,
-        embedder_coordinates: EmbedderCoordinates,
+        compositor: &mut Compositor,
         pipeline_id: PipelineId,
         _document_id: DocumentId,
         font_instance_key: Option<FontInstanceKey>
     ) -> DisplayListBuilder {
-        let layout_size = embedder_coordinates.framebuffer.to_f32() / Scale::new(embedder_coordinates.hidpi_factor.get());
-        let mut builder = DisplayListBuilder::new(pipeline_id, layout_size);
+        let mut builder = DisplayListBuilder::new(pipeline_id, compositor.get_layout_size());
 
         let space_and_clip = SpaceAndClipInfo::root_scroll(pipeline_id);
 
@@ -53,7 +47,7 @@ impl App for Basic {
                     LayoutSize::new(100.0, 200.0),
                 ),
                 space_and_clip,
-            ), 
+            ),
             LayoutRect::new(
                 LayoutPoint::new(100.0, 200.0),
                 LayoutSize::new(100.0, 200.0),

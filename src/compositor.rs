@@ -77,8 +77,8 @@ impl Compositor {
 
     pub fn send_display_list(
         &mut self,
-        epoch: Epoch, 
-        pipeline_id: PipelineId, 
+        epoch: Epoch,
+        pipeline_id: PipelineId,
         builder: DisplayListBuilder
     ) {
         let mut txn = Transaction::new();
@@ -125,7 +125,7 @@ impl Compositor {
         }
     }
 
-    fn get_layout_size(&self) -> LayoutSize {
+    pub fn get_layout_size(&self) -> LayoutSize {
         let coordinates = self.window.get_coordinates();
         coordinates.viewport.size.to_f32() / Scale::new(coordinates.hidpi_factor.get())
     }

@@ -9,11 +9,12 @@ use webrender::api::{
 };
 use winit::{
     EventsLoop, EventsLoopProxy,
-    VirtualKeyCode, Event, WindowEvent, ControlFlow
+    VirtualKeyCode, Event, WindowEvent, ControlFlow,
+    dpi::LogicalSize
 };
 use std::{cell::RefCell, rc::Rc, path::PathBuf};
 use crate::{
-    window::{EmbedderCoordinates, Window},
+    window::Window,
     compositor::Compositor
 };
 
@@ -72,11 +73,12 @@ impl HandyDandyRectBuilder for (i32, i32) {
 
 pub trait App {
 	const PRECACHE_SHADER_FLAGS: ShaderPrecacheFlags = ShaderPrecacheFlags::EMPTY;
-	const WIDTH: u32 = 1344;
-    const HEIGHT: u32 = 756;
+	const SIZE: (u32, u32) = (800, 600);
+    const TITLE: &'static str = "Example";
 
-    fn title(&self) -> &'static str;
-    fn clear_color(&self) -> Option<ColorF>;
+    fn clear_color(&self) -> Option<ColorF> {
+        Some(ColorF::new(0.3, 0.0, 0.0, 1.0))
+    }
 
     fn add_font(&self) -> Option<(PathBuf, f32)> {
         None
@@ -85,7 +87,6 @@ pub trait App {
     fn build_display_list(
         &mut self,
         compositor: &mut Compositor,
-        embedder_coordinates: EmbedderCoordinates,
         pipeline_id: PipelineId,
         document_id: DocumentId,
         font_instance_key: Option<FontInstanceKey>
@@ -128,7 +129,11 @@ pub fn run<E: App>(
     }
 
     let events_loop = Rc::new(RefCell::new(EventsLoop::new()));
-    let win = Window::new(app.title(), events_loop.clone());
+    let win = Window::new(
+        E::TITLE,
+        LogicalSize::new(E::SIZE.0 as f64, E::SIZE.1 as f64),
+        events_loop.clone()
+    );
 
     // Initialize surfman
     let webrender_surfman = win.webrender_surfman();
@@ -190,7 +195,6 @@ pub fn run<E: App>(
 
     let builder = app.build_display_list(
         &mut compositor,
-        coordinates,
         pipeline_id,
         document_id,
         font_instance_key
@@ -210,8 +214,8 @@ pub fn run<E: App>(
 
         match win_event {
             WindowEvent::CloseRequested => return ControlFlow::Break,
-            winit::WindowEvent::AxisMotion { .. } |
-            winit::WindowEvent::CursorMoved { .. } => {
+            | winit::WindowEvent::AxisMotion { .. }
+            | winit::WindowEvent::CursorMoved { .. } => {
                 custom_event = app.on_event(
                         win_event,
                         compositor.get_webrender_api(),
@@ -243,7 +247,6 @@ pub fn run<E: App>(
         if custom_event {
             let builder = app.build_display_list(
                 &mut compositor,
-                coordinates,
                 pipeline_id,
                 document_id,
                 font_instance_key

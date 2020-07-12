@@ -1,5 +1,4 @@
-use crate::{app::App, compositor::Compositor, window::EmbedderCoordinates};
-use euclid::Scale;
+use crate::{app::App, compositor::Compositor};
 use gleam::gl;
 use webrender::api::{
     units::{LayoutPoint, LayoutRect, LayoutSize, TexelRect},
@@ -87,25 +86,16 @@ struct Yuv {
 }
 
 impl App for Yuv {
-    fn title(&self) -> &'static str {
-        "Yuv Example"
-    }
-
-    fn clear_color(&self) -> Option<ColorF> {
-        Some(ColorF::new(0.3, 0.0, 0.0, 1.0))
-    }
+    const TITLE: &'static str = "Yuv Example";
 
     fn build_display_list(
         &mut self,
         compositor: &mut Compositor,
-        embedder_coordinates: EmbedderCoordinates,
         pipeline_id: PipelineId,
         document_id: DocumentId,
         _font_instance_key: Option<FontInstanceKey>,
     ) -> DisplayListBuilder {
-        let layout_size = embedder_coordinates.framebuffer.to_f32()
-            / Scale::new(embedder_coordinates.hidpi_factor.get());
-        let mut builder = DisplayListBuilder::new(pipeline_id, layout_size);
+        let mut builder = DisplayListBuilder::new(pipeline_id, compositor.get_layout_size());
 
         let bounds = LayoutRect::new(LayoutPoint::zero(), builder.content_size());
         let space_and_clip = SpaceAndClipInfo::root_scroll(pipeline_id);
